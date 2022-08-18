@@ -1,56 +1,50 @@
 import socket
-
-SERVER_PORT= 8080
-SERVER = ''
-ADDRESS = (SERVER, SERVER_PORT)
-HEADER_HTTP = 'HTTP/1.1 200 OK\r\nContent-Type: ; charset: utf-8\r\n\r\n'
-
-ssocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-def get_path(msg):
-    indice = msg.find('5000/')+6
-    path= msg[indice:msg.find(' HTTP/1.1')]
-    return path
-
-def handle_client(csocket, caddress):
-    print("[NEW CONNECTION] ", caddress, "Connected")
-
-    connected = True
-
-    while connected:
-
-        msg = csocket.recv(1024).decode()
-        path = get_path(msg)
-
-        if path== "":
-            path= "index.html"
-        
-        try:
-            file = open(path, encoding="utf-8", errors='ignore')
-
-            data = HEADER_HTTP
-            data += file.read()
-
-            file.close()
-
-            csocket.send(data.encode())
-
-        except:
-            data= "HTTP/1.1 404 \r\nContent-Type: ; charset: utf-8\r\n\r\n"
-            csocket.send(data.encode())
-        
-        connected= False
-
-    csocket.close()
-
-def start():
-    ssocket.bind(ADDRESS)
-    ssocket.listen()
-
-    print("[LISTENING] Server is listening on ", SERVER)
-    while True:
-        csocket, caddress = ssocket.accept()
-        handle_client(csocket, caddress)
-
-print("[STARTING] The server is starting")
-start()
+ 
+HOST,PORT = '',8082
+ 
+my_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+my_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+my_socket.bind((HOST,PORT))
+my_socket.listen(1)
+ 
+print('Serving on port ',PORT)
+ 
+while True:
+    connection,address = my_socket.accept()
+    request = connection.recv(1024).decode('utf-8')
+    string_list = request.split(' ')     # Split request from spaces
+ 
+    method = string_list[0]
+    requesting_file = string_list[1]
+ 
+    print('Client request ',requesting_file)
+ 
+    myfile = requesting_file.split('?')[0] # After the "?" symbol not relevent here
+    myfile = myfile.lstrip('/')
+    if(myfile == ''):
+        myfile = 'index.html'    # Load index file as default
+ 
+    try:
+        file = open(myfile,'rb') # open file , r => read , b => byte format
+        response = file.read()
+        file.close()
+ 
+        header = 'HTTP/1.1 200 OK\n'
+ 
+        if(myfile.endswith(".jpg")):
+            mimetype = 'image/jpg'
+        elif(myfile.endswith(".css")):
+            mimetype = 'text/css'
+        else:
+            mimetype = 'text/html'
+ 
+        header += 'Content-Type: '+str(mimetype)+'\n\n'
+ 
+    except Exception as e:
+        header = 'HTTP/1.1 404 Not Found\n\n'
+        response = '<html><body><center><h3>Error 404: File not found</h3><p>Python HTTP Server</p></center></body></html>'.encode('utf-8')
+ 
+    final_response = header.encode('utf-8')
+    final_response += response
+    connection.send(final_response)
+    connection.close()
